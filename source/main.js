@@ -1,34 +1,41 @@
-'use strict';
-const electron = require('electron');
-const util = require('./util');
+"use strict";
+const electron = require("electron");
+const util = require("./util");
 
-const {ipcMain: ipc, BrowserWindow} = electron;
+const { ipcMain: ipc, BrowserWindow } = electron;
 
-ipc.callRenderer = (window, channel, data) => new Promise((resolve, reject) => {
-	const {sendChannel, dataChannel, errorChannel} = util.getRendererResponseChannels(window.id, channel);
+ipc.callRenderer = (window, channel, data) =>
+	new Promise((resolve, reject) => {
+		const {
+			sendChannel,
+			dataChannel,
+			errorChannel
+		} = util.getRendererResponseChannels(window.id, channel);
 
-	const cleanup = () => {
-		ipc.removeAllListeners(dataChannel);
-		ipc.removeAllListeners(errorChannel);
-	};
+		const cleanup = () => {
+			ipc.removeAllListeners(dataChannel);
+			ipc.removeAllListeners(errorChannel);
+		};
 
-	ipc.on(dataChannel, (event, result) => {
-		cleanup();
-		resolve(result);
+		ipc.on(dataChannel, (event, result) => {
+			cleanup();
+			resolve(result);
+		});
+
+		ipc.on(errorChannel, (event, error) => {
+			cleanup();
+			reject(error);
+		});
+
+		if (window.webContents) {
+			window.webContents.send(sendChannel, data);
+		}
 	});
-
-	ipc.on(errorChannel, (event, error) => {
-		cleanup();
-		reject(error);
-	});
-
-	if (window.webContents) {
-		window.webContents.send(sendChannel, data);
-	}
-});
 
 ipc.answerRenderer = (channel, callback) => {
-	const {sendChannel, dataChannel, errorChannel} = util.getResponseChannels(channel);
+	const { sendChannel, dataChannel, errorChannel } = util.getResponseChannels(
+		channel
+	);
 
 	ipc.on(sendChannel, async (event, data) => {
 		const window = BrowserWindow.fromWebContents(event.sender);
